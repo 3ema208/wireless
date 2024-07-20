@@ -24,6 +24,8 @@ class Wireless:
         self._driver_name = self._detectDriver()
         if self._driver_name == 'nmcli':
             self._driver = NmcliWireless(interface=interface)
+        elif self._driver_name == 'nmcli100':
+            self._driver = Nmcli1000Wireless(interface=interface)
         elif self._driver_name == 'nmcli0990':
             self._driver = Nmcli0990Wireless(interface=interface)
         elif self._driver_name == 'wpa_supplicant':
@@ -47,8 +49,10 @@ class Wireless:
         if len(response) > 0 and 'not found' not in response:
             response = cmd('nmcli --version')
             parts = response.split()
-            ver = parts[-1]
-            if version.parse(ver) > version.parse('0.9.9.0'):
+            ver = version.parse(parts[-1])
+            if ver > version.parse("1.0.0"):
+                return "nmcli100"
+            elif ver > version.parse('0.9.9.0'):
                 return 'nmcli0990'
             else:
                 return 'nmcli'
@@ -307,6 +311,18 @@ class Nmcli0990Wireless(WirelessDriver):
         else:
             response = cmd('nmcli r wifi')
             return 'enabled' in response
+
+
+class Nmcli1000Wireless(Nmcli0990Wireless):
+    def connect(self, ssid, password):
+        # clean up previous connection
+        self._clean(self.current())
+
+        # attempt to connect
+        response = cmd('nmcli dev wifi connect {} password {}'.format(ssid, password))
+
+        # parse response
+        return not self._errorInResponse(response)
 
 
 # Linux wpa_supplicant Driver
